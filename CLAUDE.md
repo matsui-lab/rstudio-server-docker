@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a Docker-based multi-instance RStudio Server environment with Claude Code CLI integration. It provides a reproducible, cross-platform (Mac Intel/M1/M2, Windows, Ubuntu) development environment for R and Python data science workflows.
+This is a Docker-based multi-instance RStudio Server environment with Claude Code CLI integration. It provides a reproducible, cross-platform (Mac Intel/M1/M2, Windows, Ubuntu, Chrome OS Flex) development environment for R and Python data science workflows.
 
 **Repository:** `matsui-lab/rstudio-server-docker`
 
@@ -11,13 +11,28 @@ This is a Docker-based multi-instance RStudio Server environment with Claude Cod
 ```
 rstudio-server-docker/
 ├── Dockerfile              # Docker image definition (rocker/rstudio base)
-├── setup.sh                # Interactive setup script for Mac/Linux
-├── setup.ps1               # Interactive setup script for Windows PowerShell
+├── setup.sh                # CLI setup script for Mac/Linux
+├── setup.ps1               # CLI setup script for Windows PowerShell
+├── setup-chromeos.sh       # CLI setup script for Chrome OS Flex
+├── install.sh              # GUI installer launcher for Mac/Linux/Chrome OS
+├── install.bat             # GUI installer launcher for Windows
 ├── .env.example            # Environment variable template
-├── requirements.txt        # Python packages for reticulate (template)
+├── requirements.txt        # Python packages for reticulate
 ├── README.md               # Bilingual documentation (EN/JP)
 ├── config/
 │   └── rstudio-prefs.json  # RStudio IDE preferences template
+├── installer/              # Web-based GUI installer
+│   ├── package.json        # Node.js dependencies (Express)
+│   └── src/
+│       ├── server.js       # Express API server
+│       ├── main/
+│       │   ├── docker.js   # Docker operations + Chrome OS detection
+│       │   ├── setup.js    # Setup logic (SSH, GitHub, compose generation)
+│       │   └── hosts.js    # /etc/hosts configuration
+│       └── renderer/
+│           ├── index.html  # Installer UI
+│           ├── styles.css  # Dark theme styling
+│           └── app.js      # Frontend JavaScript (fetch API)
 └── [Generated at runtime]
     ├── .env                # Active environment configuration
     ├── docker-compose.yml  # Generated compose file
@@ -29,11 +44,15 @@ rstudio-server-docker/
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Defines the container image: R environment, scientific libraries, Node.js, Claude Code CLI, GitHub CLI |
-| `setup.sh` | Bash setup script with interactive prompts for configuration |
-| `setup.ps1` | PowerShell equivalent for Windows users |
-| `.env.example` | Template for environment variables (instances, ports, etc.) |
-| `config/rstudio-prefs.json` | RStudio IDE preferences (theme, panes, shell) |
+| `Dockerfile` | Container image: R, scientific libraries, Node.js, Claude Code CLI, GitHub CLI |
+| `setup.sh` | CLI setup for Mac/Linux with interactive prompts |
+| `setup.ps1` | CLI setup for Windows PowerShell |
+| `setup-chromeos.sh` | CLI setup for Chrome OS Flex (Crostini) with Docker auto-install |
+| `install.sh` | Launches web-based GUI installer (Mac/Linux/Chrome OS) |
+| `install.bat` | Launches web-based GUI installer (Windows) |
+| `installer/src/server.js` | Express server with REST API and SSE for progress |
+| `installer/src/main/docker.js` | Docker checks, build, Chrome OS detection |
+| `installer/src/main/setup.js` | SSH keys, GitHub auth, docker-compose.yml generation |
 
 ## Architecture
 
@@ -50,20 +69,52 @@ rstudio-server-docker/
 - SSH keys: Read-only bind mount
 - Claude config: Mounted from host's `~/.claude`
 
-### Platform Detection
-- Automatic architecture detection (x86_64 vs arm64/M1/M2)
-- Platform-specific scripts handle OS differences
+### Platform Support
+| Platform | CLI Script | GUI Installer | Access URL |
+|----------|------------|---------------|------------|
+| Mac (Intel/M1/M2) | `setup.sh` | `install.sh` | `http://rstudio-a:8787` |
+| Windows | `setup.ps1` | `install.bat` | `http://rstudio-a:8787` |
+| Ubuntu/Debian | `setup.sh` | `install.sh` | `http://rstudio-a:8787` |
+| Chrome OS Flex | `setup-chromeos.sh` | `install.sh` | `http://penguin.linux.test:8787` |
+
+### GUI Installer Architecture
+```
+Browser (http://localhost:3000)
+    ↓ fetch API
+Express Server (server.js)
+    ├── /api/platform        → Platform info
+    ├── /api/docker/*        → Docker status
+    ├── /api/chromeos/*      → Chrome OS detection
+    ├── /api/ssh/*           → SSH key operations
+    ├── /api/hosts/*         → /etc/hosts management
+    ├── /api/setup/stream    → SSE progress updates
+    └── /api/setup/run       → Execute full setup
+```
 
 ## Development Workflows
 
-### Initial Setup
+### Initial Setup (CLI)
 ```bash
-# Clone and run setup
+# Mac/Linux
 git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
-./setup.sh          # Mac/Linux
-# or
-.\setup.ps1         # Windows PowerShell
+./setup.sh
+
+# Windows PowerShell
+.\setup.ps1
+
+# Chrome OS Flex (in Linux terminal)
+./setup-chromeos.sh
+```
+
+### Initial Setup (GUI)
+```bash
+# Mac/Linux/Chrome OS Flex
+./install.sh
+# Opens http://localhost:3000 in browser
+
+# Windows
+.\install.bat
 ```
 
 ### Common Docker Commands
@@ -76,24 +127,34 @@ docker compose ps                 # Check running containers
 ```
 
 ### Accessing Instances
-- URL pattern: `http://rstudio-a:8787` (use hostnames, not localhost)
+| Platform | URL Format |
+|----------|------------|
+| Mac/Windows/Ubuntu | `http://rstudio-a:8787` |
+| Chrome OS Flex (Chrome browser) | `http://penguin.linux.test:8787` |
+| Chrome OS Flex (Linux terminal) | `http://localhost:8787` |
+
 - Credentials: username matches hostname suffix (e.g., `rstudio_a`)
 - Session isolation requires using hostnames (configured in /etc/hosts)
 
 ## Code Conventions
 
-### Shell Scripts (setup.sh)
+### Shell Scripts (setup.sh, setup-chromeos.sh)
 - Functions use `snake_case` naming
 - Interactive prompts use `read -p` with sensible defaults
-- Error handling with `set -e` consideration
+- Error handling with `set -e`
 - Platform detection before operations
 - Idempotent operations (safe to re-run)
 
 ### PowerShell Scripts (setup.ps1)
-- Functions use `PascalCase` naming (PowerShell convention)
+- Functions use `PascalCase` naming
 - Uses `Write-Host` for output, `Read-Host` for input
 - `SecureString` for sensitive inputs (passwords, PATs)
-- Same logical flow as Bash version
+
+### Node.js/Express (installer/)
+- ES modules style imports
+- Async/await for all async operations
+- Server-Sent Events (SSE) for progress streaming
+- REST API endpoints under `/api/`
 
 ### Dockerfile
 - Multi-layer optimization (grouped RUN commands)
@@ -122,15 +183,21 @@ docker compose ps                 # Check running containers
 - **Geospatial**: GDAL, GEOS, PROJ, NetCDF
 - **R packages**: renv, reticulate, devtools, testthat, lintr, styler
 
+### GUI Installer Dependencies
+- **Node.js**: v18+ required
+- **Express**: Web server
+- **open**: Browser auto-launch
+
 ## Important Notes for AI Assistants
 
 ### When Modifying This Project
 
 1. **Dockerfile changes** require `docker compose build --no-cache` to take effect
-2. **setup.sh/setup.ps1** must remain functionally equivalent
+2. **setup.sh/setup.ps1/setup-chromeos.sh** must remain functionally equivalent
 3. **Generated files** (.env, docker-compose.yml, home_*/) are gitignored
 4. **README.md** is bilingual - update both English and Japanese sections
 5. **Hostnames** (not localhost) are required for proper session isolation
+6. **installer/** uses Express (not Electron) - web-based, no native dependencies
 
 ### Common Tasks
 
@@ -146,23 +213,41 @@ docker compose ps                 # Check running containers
 1. Modify Dockerfile apt-get install list
 2. Rebuild image
 
-**Changing RStudio preferences:**
-1. Edit `config/rstudio-prefs.json` before setup
-2. Or edit in instance's `home_X/.config/rstudio/rstudio-prefs.json`
+**Modifying GUI installer:**
+1. Backend: Edit `installer/src/server.js` or `installer/src/main/*.js`
+2. Frontend: Edit `installer/src/renderer/app.js`
+3. Test: `cd installer && npm start`
+
+**Adding new platform support:**
+1. Create platform-specific setup script if needed
+2. Add detection in `installer/src/main/docker.js`
+3. Add API endpoint in `installer/src/server.js`
+4. Update README.md (both EN/JP sections)
 
 ### Files to Never Commit
 - `.env` (contains user configuration)
 - `docker-compose.yml` (generated from setup)
 - `home_*/` directories (user data)
 - `ssh/` directory (private keys)
+- `installer/node_modules/` (npm dependencies)
 - Any files containing credentials or tokens
 
 ### Testing Changes
+
+**CLI Scripts:**
 1. Run setup script with test configuration
 2. Verify containers start: `docker compose ps`
 3. Access RStudio at configured hostname:port
-4. Test Claude Code: `claude --version` in RStudio terminal
-5. Test GitHub: `gh auth status` in RStudio terminal
+
+**GUI Installer:**
+1. `cd installer && npm install && npm start`
+2. Open http://localhost:3000
+3. Walk through setup wizard
+4. Verify all API endpoints respond correctly
+
+**In Container:**
+1. Test Claude Code: `claude --version`
+2. Test GitHub: `gh auth status`
 
 ## Build & Run Commands
 
@@ -180,6 +265,9 @@ docker compose exec rstudio-a bash
 
 # Batch processing (runner container)
 docker compose run --rm runner "R CMD BATCH script.R"
+
+# Run GUI installer in dev mode
+cd installer && npm start
 ```
 
 ## Troubleshooting
@@ -191,3 +279,6 @@ docker compose run --rm runner "R CMD BATCH script.R"
 | R packages not persisting | Check renv-cache volume exists |
 | Claude CLI not found | Rebuild image, verify Node.js installation |
 | GitHub auth failing | Re-run setup with new PAT |
+| GUI installer won't start | Check Node.js v18+ installed |
+| Chrome OS: Docker permission denied | Log out and log back in after Docker install |
+| Chrome OS: Can't access from browser | Use `http://penguin.linux.test:PORT` |
