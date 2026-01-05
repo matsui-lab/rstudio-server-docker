@@ -13,12 +13,13 @@ const app = {
     githubToken: '',
     setupHosts: true,
   },
+  eventSource: null,
 
   async init() {
-    // Set default work directory
-    const resourcesPath = await window.api.getResourcesPath();
-    this.config.workDir = resourcesPath;
-    document.getElementById('work-dir').value = resourcesPath;
+    // Get platform info and set default work directory
+    const platform = await fetch('/api/platform').then(r => r.json());
+    this.config.workDir = platform.workDir;
+    document.getElementById('work-dir').value = platform.workDir;
 
     // Setup SSH option change handler
     document.querySelectorAll('input[name="ssh-option"]').forEach(radio => {
@@ -30,24 +31,12 @@ const app = {
     });
 
     // Check for existing SSH keys
-    const keys = await window.api.checkSSHKeys();
+    const keys = await fetch('/api/ssh/keys').then(r => r.json());
     if (keys.length > 0) {
       document.getElementById('ssh-key-status').style.display = 'block';
       document.getElementById('ssh-key-status').innerHTML =
         `Found existing keys: ${keys.map(k => k.type).join(', ')}`;
     }
-
-    // Setup progress listeners
-    window.api.onSetupProgress((data) => {
-      document.getElementById('progress-fill').style.width = `${data.percent}%`;
-      document.getElementById('progress-message').textContent = data.message;
-    });
-
-    window.api.onDockerOutput((output) => {
-      const log = document.getElementById('docker-log');
-      log.textContent += output;
-      log.scrollTop = log.scrollHeight;
-    });
   },
 
   showStep(stepIndex) {
@@ -121,7 +110,7 @@ const app = {
     installedCheck.querySelector('.check-icon').textContent = '⏳';
     installedCheck.classList.remove('success', 'error');
 
-    const installed = await window.api.checkDockerInstalled();
+    const installed = await fetch('/api/docker/installed').then(r => r.json());
 
     if (installed.installed) {
       installedCheck.querySelector('.check-icon').textContent = '✓';
@@ -129,7 +118,7 @@ const app = {
 
       // Check running
       runningCheck.querySelector('.check-icon').textContent = '⏳';
-      const running = await window.api.checkDockerRunning();
+      const running = await fetch('/api/docker/running').then(r => r.json());
 
       if (running.running) {
         runningCheck.querySelector('.check-icon').textContent = '✓';
@@ -152,12 +141,10 @@ const app = {
     }
   },
 
-  async selectDirectory() {
-    const dir = await window.api.selectDirectory();
-    if (dir) {
-      this.config.workDir = dir;
-      document.getElementById('work-dir').value = dir;
-    }
+  selectDirectory() {
+    // Web版ではネイティブディレクトリ選択は使えないため、
+    // 入力フィールドを直接編集するよう促す
+    alert('Please edit the directory path directly in the input field.');
   },
 
   updateHostsPreview() {
@@ -174,7 +161,42 @@ const app = {
     this.saveCurrentStepData();
     this.showStep(this.steps.indexOf('progress'));
 
-    const result = await window.api.runSetup(this.config);
+    // Setup Server-Sent Events for progress updates
+    this.eventSource = new EventSource('/api/setup/stream');
+
+    this.eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'docker') {
+        // Docker output
+        const log = document.getElementById('docker-log');
+        log.textContent += data.output;
+        log.scrollTop = log.scrollHeight;
+      } else {
+        // Progress update
+        if (data.percent >= 0) {
+          document.getElementById('progress-fill').style.width = `${data.percent}%`;
+        }
+        document.getElementById('progress-message').textContent = data.message;
+
+        if (data.step === 'error') {
+          document.getElementById('progress-message').style.color = 'var(--error)';
+        }
+      }
+    };
+
+    // Start setup
+    const result = await fetch('/api/setup/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(this.config),
+    }).then(r => r.json());
+
+    // Close event source
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
 
     if (result.success) {
       this.showStep(this.steps.indexOf('complete'));
@@ -198,7 +220,7 @@ const app = {
             <strong>Instance ${letter.toUpperCase()}</strong><br>
             <small>User: rstudio_${letter} / Pass: rstudio_${letter}</small>
           </div>
-          <a href="#" onclick="api.openExternal('http://rstudio-${letter}:${port}')">
+          <a href="http://rstudio-${letter}:${port}" target="_blank">
             http://rstudio-${letter}:${port}
           </a>
         </div>
@@ -210,7 +232,7 @@ const app = {
 
   openFirstInstance() {
     const port = this.config.basePort;
-    window.api.openExternal(`http://rstudio-a:${port}`);
+    window.open(`http://rstudio-a:${port}`, '_blank');
   },
 };
 

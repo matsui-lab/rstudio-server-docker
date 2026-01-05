@@ -21,6 +21,7 @@ Docker-based RStudio Server with Claude Code CLI integration.
 - Git
 - Docker Desktop (Mac/Windows) or Docker Engine (Linux)
 - Docker Compose v2
+- Node.js v18+ (for GUI Installer only)
 
 ## Prerequisites Installation
 
@@ -37,6 +38,9 @@ brew install git
 # Download from: https://docs.docker.com/desktop/install/mac-install/
 # Or use Homebrew:
 brew install --cask docker
+
+# Install Node.js (for GUI Installer)
+brew install node
 ```
 
 ### Windows
@@ -51,6 +55,11 @@ winget install Git.Git
 # Download from: https://docs.docker.com/desktop/install/windows-install/
 # Or use winget:
 winget install Docker.DockerDesktop
+
+# Install Node.js (for GUI Installer)
+# Download from: https://nodejs.org/
+# Or use winget:
+winget install OpenJS.NodeJS.LTS
 
 # Restart PowerShell after installation
 ```
@@ -73,7 +82,44 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 
 # Add user to docker group (logout required)
 sudo usermod -aG docker $USER
+
+# Install Node.js (for GUI Installer)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
+
+### Chrome OS Flex
+
+Chrome OS Flex requires the Linux development environment (Crostini).
+
+#### Enable Linux Development Environment
+1. Open **Settings**
+2. Go to **Advanced** > **Developers**
+3. Turn on **Linux development environment**
+4. Follow the setup prompts (this may take several minutes)
+
+#### Install Prerequisites (in Linux Terminal)
+```bash
+# Install Git
+sudo apt update && sudo apt install -y git
+
+# Install Docker
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Add user to docker group (logout and login required)
+sudo usermod -aG docker $USER
+
+# Install Node.js (for GUI Installer)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Important**: After installing Docker, log out and log back in for the group membership to take effect.
 
 ## Quick Start
 
@@ -92,6 +138,34 @@ git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 .\setup.ps1
 ```
+
+### Chrome OS Flex (in Linux Terminal)
+
+```bash
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+./setup-chromeos.sh
+```
+
+### GUI Installer (All Platforms)
+
+For a graphical interface, use the web-based installer:
+
+```bash
+# Mac / Linux / Chrome OS Flex
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+./install.sh
+```
+
+```powershell
+# Windows
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+.\install.bat
+```
+
+The installer will automatically open http://localhost:3000 in your browser.
 
 ## Configuration Options
 
@@ -125,8 +199,21 @@ The setup script will configure:
 
 After setup, access RStudio Server using hostnames (for independent sessions):
 
+### Mac / Windows / Ubuntu
+
 - Instance a: http://rstudio-a:8787 (user: `rstudio_a`, pass: `rstudio_a`)
 - Instance b: http://rstudio-b:8788 (user: `rstudio_b`, pass: `rstudio_b`)
+- ...
+
+### Chrome OS Flex
+
+From Chrome browser:
+- Instance a: http://penguin.linux.test:8787
+- Instance b: http://penguin.linux.test:8788
+- ...
+
+From Linux terminal:
+- Instance a: http://localhost:8787 or http://rstudio-a:8787
 - ...
 
 **Important**: Use hostname URLs (`rstudio-a`, `rstudio-b`, etc.) instead of `localhost` to ensure each instance maintains independent sessions.
@@ -226,6 +313,7 @@ Docker ベースの RStudio Server（Claude Code CLI 統合済み）
 - Git
 - Docker Desktop (Mac/Windows) または Docker Engine (Linux)
 - Docker Compose v2
+- Node.js v18+（GUI インストーラー使用時のみ）
 
 ## 前提ソフトウェアのインストール
 
@@ -242,6 +330,9 @@ brew install git
 # ダウンロード: https://docs.docker.com/desktop/install/mac-install/
 # または Homebrew で:
 brew install --cask docker
+
+# Node.js をインストール（GUI インストーラー用）
+brew install node
 ```
 
 ### Windows
@@ -256,6 +347,11 @@ winget install Git.Git
 # ダウンロード: https://docs.docker.com/desktop/install/windows-install/
 # または winget で:
 winget install Docker.DockerDesktop
+
+# Node.js をインストール（GUI インストーラー用）
+# ダウンロード: https://nodejs.org/
+# または winget で:
+winget install OpenJS.NodeJS.LTS
 
 # インストール後、PowerShell を再起動
 ```
@@ -278,7 +374,44 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 
 # ユーザーを docker グループに追加（ログアウトが必要）
 sudo usermod -aG docker $USER
+
+# Node.js をインストール（GUI インストーラー用）
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
+
+### Chrome OS Flex
+
+Chrome OS Flex では Linux 開発環境（Crostini）が必要です。
+
+#### Linux 開発環境の有効化
+1. **設定**を開く
+2. **詳細設定** > **デベロッパー**に移動
+3. **Linux 開発環境**をオンにする
+4. 指示に従ってセットアップ（数分かかる場合があります）
+
+#### 前提ソフトウェアのインストール（Linux ターミナル内）
+```bash
+# Git をインストール
+sudo apt update && sudo apt install -y git
+
+# Docker をインストール
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# ユーザーを docker グループに追加（ログアウト/ログインが必要）
+sudo usermod -aG docker $USER
+
+# Node.js をインストール（GUI インストーラー用）
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**重要**: Docker インストール後、グループ設定を反映するためにログアウト/ログインが必要です。
 
 ## クイックスタート
 
@@ -297,6 +430,34 @@ git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 .\setup.ps1
 ```
+
+### Chrome OS Flex（Linux ターミナル内）
+
+```bash
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+./setup-chromeos.sh
+```
+
+### GUI インストーラー（全プラットフォーム対応）
+
+グラフィカルインターフェースを使用する場合は、Web ベースのインストーラーを使用:
+
+```bash
+# Mac / Linux / Chrome OS Flex
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+./install.sh
+```
+
+```powershell
+# Windows
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
+cd rstudio-server-docker
+.\install.bat
+```
+
+インストーラーは自動的にブラウザで http://localhost:3000 を開きます。
 
 ## 設定オプション
 
@@ -330,8 +491,21 @@ cd rstudio-server-docker
 
 セットアップ後、ホスト名を使ってアクセス（セッション独立のため）:
 
+### Mac / Windows / Ubuntu
+
 - インスタンス a: http://rstudio-a:8787 (ユーザー: `rstudio_a`, パスワード: `rstudio_a`)
 - インスタンス b: http://rstudio-b:8788 (ユーザー: `rstudio_b`, パスワード: `rstudio_b`)
+- ...
+
+### Chrome OS Flex
+
+Chrome ブラウザから:
+- インスタンス a: http://penguin.linux.test:8787
+- インスタンス b: http://penguin.linux.test:8788
+- ...
+
+Linux ターミナルから:
+- インスタンス a: http://localhost:8787 または http://rstudio-a:8787
 - ...
 
 **重要**: 各インスタンスで独立したセッションを維持するため、`localhost` ではなくホスト名 URL（`rstudio-a`, `rstudio-b` など）を使用してください。
