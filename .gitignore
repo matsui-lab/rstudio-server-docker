@@ -21,3 +21,8 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Installer (Electron)
+installer/node_modules/
+installer/dist/
+installer/*.log

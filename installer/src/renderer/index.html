@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>RStudio Server Docker Installer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <div class="logo">
+        <svg viewBox="0 0 100 100" width="60" height="60">
+          <circle cx="50" cy="50" r="45" fill="#75AADB"/>
+          <text x="50" y="65" text-anchor="middle" fill="white" font-size="40" font-weight="bold">R</text>
+        </svg>
+        <h1>RStudio Server<br>Docker</h1>
+      </div>
+      <nav class="steps">
+        <div class="step active" data-step="welcome">
+          <span class="step-number">1</span>
+          <span class="step-label">Welcome</span>
+        </div>
+        <div class="step" data-step="docker">
+          <span class="step-number">2</span>
+          <span class="step-label">Docker Check</span>
+        </div>
+        <div class="step" data-step="config">
+          <span class="step-number">3</span>
+          <span class="step-label">Configuration</span>
+        </div>
+        <div class="step" data-step="ssh">
+          <span class="step-number">4</span>
+          <span class="step-label">SSH Setup</span>
+        </div>
+        <div class="step" data-step="github">
+          <span class="step-number">5</span>
+          <span class="step-label">GitHub Auth</span>
+        </div>
+        <div class="step" data-step="hosts">
+          <span class="step-number">6</span>
+          <span class="step-label">Hosts Setup</span>
+        </div>
+        <div class="step" data-step="progress">
+          <span class="step-number">7</span>
+          <span class="step-label">Install</span>
+        </div>
+        <div class="step" data-step="complete">
+          <span class="step-number">8</span>
+          <span class="step-label">Complete</span>
+        </div>
+      </nav>
+    </div>
+
+    <main class="content">
+      <!-- Welcome -->
+      <section class="page active" id="page-welcome">
+        <h2>Welcome to RStudio Server Docker Installer</h2>
+        <p>This installer will help you set up RStudio Server in Docker containers.</p>
+        <div class="features">
+          <div class="feature">
+            <span class="icon">🔬</span>
+            <span>Multiple RStudio instances</span>
+          </div>
+          <div class="feature">
+            <span class="icon">🤖</span>
+            <span>Claude Code CLI integrated</span>
+          </div>
+          <div class="feature">
+            <span class="icon">📦</span>
+            <span>Scientific computing libraries</span>
+          </div>
+          <div class="feature">
+            <span class="icon">🔗</span>
+            <span>GitHub CLI (gh) ready</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" onclick="app.nextStep()">Get Started</button>
+        </div>
+      </section>
+
+      <!-- Docker Check -->
+      <section class="page" id="page-docker">
+        <h2>Docker Check</h2>
+        <div class="check-list">
+          <div class="check-item" id="check-docker-installed">
+            <span class="check-icon">⏳</span>
+            <span class="check-label">Docker installed</span>
+          </div>
+          <div class="check-item" id="check-docker-running">
+            <span class="check-icon">⏳</span>
+            <span class="check-label">Docker running</span>
+          </div>
+        </div>
+        <div id="docker-error" class="error-box" style="display: none;">
+          <p>Docker is required to continue. Please install Docker Desktop:</p>
+          <ul>
+            <li><a href="#" onclick="api.openExternal('https://docs.docker.com/desktop/install/mac-install/')">Mac</a></li>
+            <li><a href="#" onclick="api.openExternal('https://docs.docker.com/desktop/install/windows-install/')">Windows</a></li>
+            <li><a href="#" onclick="api.openExternal('https://docs.docker.com/engine/install/')">Linux</a></li>
+          </ul>
+          <button class="btn" onclick="app.checkDocker()">Retry</button>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="app.prevStep()">Back</button>
+          <button class="btn primary" id="docker-next" disabled onclick="app.nextStep()">Next</button>
+        </div>
+      </section>
+
+      <!-- Configuration -->
+      <section class="page" id="page-config">
+        <h2>Configuration</h2>
+        <div class="form-group">
+          <label for="work-dir">Installation Directory</label>
+          <div class="input-with-button">
+            <input type="text" id="work-dir" readonly>
+            <button class="btn" onclick="app.selectDirectory()">Browse</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="instances">Number of Instances: <span id="instances-value">5</span></label>
+          <input type="range" id="instances" min="1" max="10" value="5" oninput="document.getElementById('instances-value').textContent = this.value">
+        </div>
+        <div class="form-group">
+          <label for="base-port">Base Port</label>
+          <input type="number" id="base-port" value="8787" min="1024" max="65535">
+        </div>
+        <div class="form-group">
+          <label class="checkbox">
+            <input type="checkbox" id="share-claude" checked>
+            <span>Share Claude config from host (~/.claude)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox">
+            <input type="checkbox" id="include-runner" checked>
+            <span>Include runner container for batch processing</span>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="app.prevStep()">Back</button>
+          <button class="btn primary" onclick="app.nextStep()">Next</button>
+        </div>
+      </section>
+
+      <!-- SSH Setup -->
+      <section class="page" id="page-ssh">
+        <h2>SSH Setup</h2>
+        <p>Configure SSH keys for GitHub access.</p>
+        <div class="radio-group">
+          <label class="radio">
+            <input type="radio" name="ssh-option" value="copy" checked>
+            <span>Copy existing SSH keys from ~/.ssh</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="ssh-option" value="generate">
+            <span>Generate new SSH key pair</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="ssh-option" value="skip">
+            <span>Skip SSH setup</span>
+          </label>
+        </div>
+        <div class="form-group" id="ssh-email-group" style="display: none;">
+          <label for="ssh-email">Email for SSH key</label>
+          <input type="email" id="ssh-email" placeholder="your@email.com">
+        </div>
+        <div id="ssh-key-status" class="info-box" style="display: none;"></div>
+        <div class="actions">
+          <button class="btn" onclick="app.prevStep()">Back</button>
+          <button class="btn primary" onclick="app.nextStep()">Next</button>
+        </div>
+      </section>
+
+      <!-- GitHub Auth -->
+      <section class="page" id="page-github">
+        <h2>GitHub Authentication</h2>
+        <p>Configure GitHub Personal Access Token for git/gh commands.</p>
+        <p class="hint">
+          <a href="#" onclick="api.openExternal('https://github.com/settings/tokens')">Create a token</a>
+          with scopes: repo, read:org, workflow
+        </p>
+        <div class="form-group">
+          <label for="github-username">GitHub Username</label>
+          <input type="text" id="github-username" placeholder="username">
+        </div>
+        <div class="form-group">
+          <label for="github-token">Personal Access Token</label>
+          <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+        </div>
+        <p class="hint">Leave empty to skip GitHub authentication.</p>
+        <div class="actions">
+          <button class="btn" onclick="app.prevStep()">Back</button>
+          <button class="btn primary" onclick="app.nextStep()">Next</button>
+        </div>
+      </section>
+
+      <!-- Hosts Setup -->
+      <section class="page" id="page-hosts">
+        <h2>Hosts File Setup</h2>
+        <p>Add hostname entries to enable independent sessions.</p>
+        <div class="form-group">
+          <label class="checkbox">
+            <input type="checkbox" id="setup-hosts" checked>
+            <span>Add entries to hosts file (requires admin privileges)</span>
+          </label>
+        </div>
+        <div class="info-box">
+          <p>The following entries will be added:</p>
+          <pre id="hosts-preview"></pre>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="app.prevStep()">Back</button>
+          <button class="btn primary" onclick="app.startSetup()">Install</button>
+        </div>
+      </section>
+
+      <!-- Progress -->
+      <section class="page" id="page-progress">
+        <h2>Installing...</h2>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p id="progress-message">Initializing...</p>
+        </div>
+        <div class="log-container">
+          <pre id="docker-log"></pre>
+        </div>
+      </section>
+
+      <!-- Complete -->
+      <section class="page" id="page-complete">
+        <h2>Installation Complete!</h2>
+        <div class="success-icon">✓</div>
+        <p>RStudio Server Docker has been set up successfully.</p>
+        <div class="access-list" id="access-list"></div>
+        <div class="actions">
+          <button class="btn primary" onclick="app.openFirstInstance()">Open RStudio</button>
+          <button class="btn" onclick="window.close()">Close</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

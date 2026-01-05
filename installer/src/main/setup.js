@@ -1,0 +1,258 @@
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+const { exec, spawn } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
+
+async function checkExistingSSHKeys() {
+  const sshDir = path.join(os.homedir(), '.ssh');
+  const keys = [];
+
+  try {
+    const ed25519 = path.join(sshDir, 'id_ed25519');
+    await fs.access(ed25519);
+    keys.push({ type: 'ed25519', path: ed25519 });
+  } catch {}
+
+  try {
+    const rsa = path.join(sshDir, 'id_rsa');
+    await fs.access(rsa);
+    keys.push({ type: 'rsa', path: rsa });
+  } catch {}
+
+  return keys;
+}
+
+async function copySSHKeys(targetDir) {
+  const sshDir = path.join(os.homedir(), '.ssh');
+  await fs.mkdir(targetDir, { recursive: true });
+
+  // Try ed25519 first, then rsa
+  const keyTypes = ['id_ed25519', 'id_rsa'];
+
+  for (const keyType of keyTypes) {
+    try {
+      const privateKey = path.join(sshDir, keyType);
+      const publicKey = path.join(sshDir, `${keyType}.pub`);
+
+      await fs.access(privateKey);
+      await fs.access(publicKey);
+
+      await fs.copyFile(privateKey, path.join(targetDir, keyType));
+      await fs.copyFile(publicKey, path.join(targetDir, `${keyType}.pub`));
+
+      // Set permissions
+      await fs.chmod(path.join(targetDir, keyType), 0o600);
+
+      // Create config
+      const configContent = `Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/${keyType}
+    IdentitiesOnly yes
+`;
+      await fs.writeFile(path.join(targetDir, 'config'), configContent);
+
+      return { success: true, keyType };
+    } catch {}
+  }
+
+  return { success: false, error: 'No SSH keys found' };
+}
+
+async function generateSSHKeys(email, targetDir) {
+  await fs.mkdir(targetDir, { recursive: true });
+  const keyPath = path.join(targetDir, 'id_ed25519');
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('ssh-keygen', ['-t', 'ed25519', '-C', email, '-f', keyPath, '-N', ''], {
+      shell: true,
+    });
+
+    child.on('close', async (code) => {
+      if (code === 0) {
+        // Create config
+        const configContent = `Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+`;
+        await fs.writeFile(path.join(targetDir, 'config'), configContent);
+
+        // Read public key
+        const publicKey = await fs.readFile(`${keyPath}.pub`, 'utf-8');
+        resolve({ success: true, publicKey: publicKey.trim() });
+      } else {
+        reject(new Error(`ssh-keygen failed with code ${code}`));
+      }
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+async function createHomeDirectories(workDir, instances) {
+  for (let i = 1; i <= instances; i++) {
+    const letter = String.fromCharCode(96 + i);
+    const homeDir = path.join(workDir, `home_${letter}`);
+    const rstudioConfigDir = path.join(homeDir, '.config', 'rstudio');
+
+    await fs.mkdir(rstudioConfigDir, { recursive: true });
+
+    // Copy rstudio-prefs.json
+    const prefsSource = path.join(workDir, 'config', 'rstudio-prefs.json');
+    const prefsDest = path.join(rstudioConfigDir, 'rstudio-prefs.json');
+
+    try {
+      await fs.copyFile(prefsSource, prefsDest);
+    } catch {
+      // Create default prefs if source doesn't exist
+      const defaultPrefs = {
+        initial_working_directory: "~",
+        editor_theme: "Tomorrow Night Bright",
+        posix_terminal_shell: "bash",
+        default_project_location: "~"
+      };
+      await fs.writeFile(prefsDest, JSON.stringify(defaultPrefs, null, 2));
+    }
+  }
+}
+
+async function setupGitHubAuth(workDir, instances, username, token) {
+  for (let i = 1; i <= instances; i++) {
+    const letter = String.fromCharCode(96 + i);
+    const homeDir = path.join(workDir, `home_${letter}`);
+
+    // .git-credentials
+    const credentials = `https://${username}:${token}@github.com\n`;
+    await fs.writeFile(path.join(homeDir, '.git-credentials'), credentials, { mode: 0o600 });
+
+    // .gitconfig
+    const gitconfig = `[user]
+    name = ${username}
+    email = ${username}@users.noreply.github.com
+[credential]
+    helper = store
+[init]
+    defaultBranch = main
+`;
+    await fs.writeFile(path.join(homeDir, '.gitconfig'), gitconfig);
+
+    // gh CLI config
+    const ghConfigDir = path.join(homeDir, '.config', 'gh');
+    await fs.mkdir(ghConfigDir, { recursive: true });
+
+    const ghHosts = `github.com:
+    oauth_token: ${token}
+    user: ${username}
+    git_protocol: https
+`;
+    await fs.writeFile(path.join(ghConfigDir, 'hosts.yml'), ghHosts, { mode: 0o600 });
+  }
+}
+
+async function generateComposeFile(config) {
+  const { workDir, instances, basePort, shareClaudeConfig, includeRunner } = config;
+
+  // Detect platform
+  const arch = process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64';
+
+  let compose = `# Auto-generated by RStudio Server Docker Installer
+# Instances: ${instances}, Platform: ${arch}
+
+services:
+`;
+
+  // Generate service entries
+  for (let i = 1; i <= instances; i++) {
+    const letter = String.fromCharCode(96 + i);
+    const port = basePort + i - 1;
+
+    compose += `
+  rstudio_${letter}:
+    build: .
+    container_name: rstudio-server-${letter}
+    hostname: rstudio-${letter}
+    platform: ${arch}
+    ports: ["${port}:8787"]
+    environment:
+      USER: rstudio_${letter}
+      PASSWORD: rstudio_${letter}
+      RETICULATE_PYTHON: /opt/venv/bin/python
+      RENV_PATHS_CACHE: /opt/renv/cache
+      RENV_PATHS_LIBRARY: /opt/renv/library
+    volumes:
+      - ./home_${letter}:/home/rstudio_${letter}
+      - ./ssh:/home/rstudio_${letter}/.ssh:ro
+`;
+    if (shareClaudeConfig) {
+      compose += `      - ~/.claude:/home/rstudio_${letter}/.claude\n`;
+    }
+    compose += `      - renv-cache:/opt/renv/cache
+      - renv-lib:/opt/renv/library
+    working_dir: /home/rstudio_${letter}
+    restart: unless-stopped
+`;
+  }
+
+  // Runner container
+  if (includeRunner) {
+    compose += `
+  runner:
+    build: .
+    container_name: rstudio-runner
+    hostname: rstudio-runner
+    platform: ${arch}
+    environment:
+      RETICULATE_PYTHON: /opt/venv/bin/python
+      RENV_PATHS_CACHE: /opt/renv/cache
+      RENV_PATHS_LIBRARY: /opt/renv/library
+    volumes:
+`;
+    for (let i = 1; i <= instances; i++) {
+      const letter = String.fromCharCode(96 + i);
+      compose += `      - ./home_${letter}:/home/rstudio_${letter}\n`;
+    }
+    if (shareClaudeConfig) {
+      compose += `      - ~/.claude:/home/rstudio/.claude\n`;
+    }
+    compose += `      - renv-cache:/opt/renv/cache
+      - renv-lib:/opt/renv/library
+    working_dir: /home
+    entrypoint: ["bash", "-lc"]
+    tty: true
+    restart: unless-stopped
+`;
+  }
+
+  compose += `
+volumes:
+  renv-cache:
+  renv-lib:
+`;
+
+  await fs.writeFile(path.join(workDir, 'docker-compose.yml'), compose);
+
+  // Save .env
+  const envContent = `# Generated configuration
+RSTUDIO_INSTANCES=${instances}
+RSTUDIO_BASE_PORT=${basePort}
+SHARE_CLAUDE_CONFIG=${shareClaudeConfig}
+INCLUDE_RUNNER=${includeRunner}
+DOCKER_PLATFORM=${arch}
+`;
+  await fs.writeFile(path.join(workDir, '.env'), envContent);
+}
+
+module.exports = {
+  checkExistingSSHKeys,
+  copySSHKeys,
+  generateSSHKeys,
+  createHomeDirectories,
+  setupGitHubAuth,
+  generateComposeFile,
+};
