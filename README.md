@@ -18,15 +18,69 @@ Docker-based RStudio Server with Claude Code CLI integration.
 
 ## Requirements
 
+- Git
 - Docker Desktop (Mac/Windows) or Docker Engine (Linux)
 - Docker Compose v2
+
+## Prerequisites Installation
+
+### Mac
+
+```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Git
+brew install git
+
+# Install Docker Desktop
+# Download from: https://docs.docker.com/desktop/install/mac-install/
+# Or use Homebrew:
+brew install --cask docker
+```
+
+### Windows
+
+```powershell
+# Install Git
+# Download from: https://git-scm.com/download/win
+# Or use winget:
+winget install Git.Git
+
+# Install Docker Desktop
+# Download from: https://docs.docker.com/desktop/install/windows-install/
+# Or use winget:
+winget install Docker.DockerDesktop
+
+# Restart PowerShell after installation
+```
+
+### Ubuntu / Debian
+
+```bash
+# Install Git
+sudo apt update
+sudo apt install -y git
+
+# Install Docker
+sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Add user to docker group (logout required)
+sudo usermod -aG docker $USER
+```
 
 ## Quick Start
 
 ### Mac / Linux
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 ./setup.sh
 ```
@@ -34,7 +88,7 @@ cd rstudio-server-docker
 ### Windows (PowerShell)
 
 ```powershell
-git clone <repository-url>
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 .\setup.ps1
 ```
@@ -169,15 +223,69 @@ Docker ベースの RStudio Server（Claude Code CLI 統合済み）
 
 ## 必要条件
 
+- Git
 - Docker Desktop (Mac/Windows) または Docker Engine (Linux)
 - Docker Compose v2
+
+## 前提ソフトウェアのインストール
+
+### Mac
+
+```bash
+# Homebrew をインストール（未インストールの場合）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Git をインストール
+brew install git
+
+# Docker Desktop をインストール
+# ダウンロード: https://docs.docker.com/desktop/install/mac-install/
+# または Homebrew で:
+brew install --cask docker
+```
+
+### Windows
+
+```powershell
+# Git をインストール
+# ダウンロード: https://git-scm.com/download/win
+# または winget で:
+winget install Git.Git
+
+# Docker Desktop をインストール
+# ダウンロード: https://docs.docker.com/desktop/install/windows-install/
+# または winget で:
+winget install Docker.DockerDesktop
+
+# インストール後、PowerShell を再起動
+```
+
+### Ubuntu / Debian
+
+```bash
+# Git をインストール
+sudo apt update
+sudo apt install -y git
+
+# Docker をインストール
+sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# ユーザーを docker グループに追加（ログアウトが必要）
+sudo usermod -aG docker $USER
+```
 
 ## クイックスタート
 
 ### Mac / Linux
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 ./setup.sh
 ```
@@ -185,7 +293,7 @@ cd rstudio-server-docker
 ### Windows (PowerShell)
 
 ```powershell
-git clone <repository-url>
+git clone git@github.com:matsui-lab/rstudio-server-docker.git
 cd rstudio-server-docker
 .\setup.ps1
 ```
