@@ -1,0 +1,6 @@
+# Python packages for reticulate
+# Add your required packages here, one per line
+# Example:
+# numpy
+# pandas
+# scikit-learn

@@ -1,0 +1,23 @@
+# Generated files
+.env
+docker-compose.yml
+
+# User home directories
+home_*/
+
+# SSH keys (sensitive)
+ssh/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Docker
+*.log
